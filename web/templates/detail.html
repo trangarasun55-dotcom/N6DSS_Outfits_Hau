@@ -1,0 +1,192 @@
+
+{% extends 'base.html' %}
+
+{% block title %}OutfitAI · Chi tiết gợi ý{% endblock %}
+
+{% block content %}
+<div class="page-container" data-outfit-tracking data-request-item-id="{{ outfit.request_item_id or '' }}">
+
+    <div class="card detail-card">
+        <div class="page-heading-row">
+            <div>
+                <span class="purple-pill">GỢI Ý #{{ outfit.id }}</span>
+                <h1 class="detail-title">{{ outfit.name }}</h1>
+            </div>
+            <span class="score-large">{{ outfit.score|default(0)|round(1) }}/10</span>
+        </div>
+
+        <p class="sub-title">
+            Khoảng dao động
+            {{ outfit.score_low|default(outfit.score|default(0))|round(2) }}–{{ outfit.score_high|default(outfit.score|default(0))|round(2) }}/10
+            · Độ tin cậy {{ outfit.confidence_level|default('Chưa xác định') }}
+        </p>
+
+        {% if result_warnings %}
+        <div class="notice" role="status">
+            {{ result_warnings|join(' · ') }}
+        </div>
+        {% endif %}
+
+        <div class="detail-split-layout">
+            <section class="card reasons-card">
+                <h2>Vì Sao Bộ Outfit Này Được Gợi Ý?</h2>
+
+                {% set explanation_text = outfit.explanation_llm or outfit.explanation or outfit.recommendation or 'Chưa có nhận xét cho bộ này.' %}
+                <ul class="detail-reason-list">
+                    {% for reason in explanation_text.replace('。', '|').replace('. ', '|').replace('; ', '|').replace(' · ', '|').split('|') %}
+                        {% set reason_clean = reason|trim|trim('.') %}
+                        {% if reason_clean %}
+                        <li>{{ reason_clean[0]|upper }}{{ reason_clean[1:] }}</li>
+                        {% endif %}
+                    {% endfor %}
+                </ul>
+
+                {% if outfit.explanation_source == 'gemini' %}
+                <p class="section-helper">
+                    Nhận xét được AI diễn giải từ dữ liệu gợi ý.
+                </p>
+                {% else %}
+                <p class="section-helper">
+                    {{ outfit.explanation_notice or 'Đang hiển thị giải thích theo quy tắc.' }}
+                </p>
+                {% endif %}
+            </section>
+
+            <section class="card dss-analysis-card">
+                <h2>Phân Tích Ma Trận Quyết Định</h2>
+
+                <p class="section-helper">
+                    Các tiêu chí diễn giải theo công thức dữ liệu;
+                    điểm model vẫn là căn cứ xếp hạng chính.
+                </p>
+
+                {% for key, label in [
+                    ('temp_score', 'Phù hợp thời tiết'),
+                    ('activity_score', 'Phù hợp hoàn cảnh'),
+                    ('style_score', 'Phù hợp phong cách'),
+                    ('match_score', 'Điểm xếp hạng')
+                ] %}
+                    {% if outfit.get(key) is not none %}
+                    <div class="dss-criterion">
+                        <div class="crit-row">
+                            <span>{{ label }}</span>
+                            <b>{{ outfit[key]|round|int }}%</b>
+                        </div>
+
+                        <div class="bar-bg">
+                            <div
+                                class="bar-fill"
+                                data-score="{{ [[outfit[key], 0]|max, 100]|min }}">
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            </section>
+        </div>
+
+        <section class="items-breakdown-card">
+            <h2>Các Món Trong Bộ</h2>
+
+            <div class="grid-4-cols">
+                {% for item in outfit['items'] %}
+                {% set product_id = item.get('id', item.get('product_id', item.get('ma_sp', ''))) %}
+                {% set product_name = item.get('name', item.get('ten_sp', 'Sản phẩm')) %}
+
+                <article class="item-card outfit-detail-item">
+                    <div class="detail-product-image-box">
+                        {% if product_id %}
+                            {% set product_filename = product_id|string %}
+
+                            {% if '.' not in product_filename %}
+                                {% set product_filename = product_filename ~ '.jpg' %}
+                            {% endif %}
+
+                            <img
+                                class="detail-product-image"
+                                src="{{ url_for('static', filename='images/images/' ~ product_filename) }}"
+                                alt="{{ product_name }}"
+                                loading="lazy"
+                                onerror="this.style.display='none'; this.nextElementSibling.hidden=false;"
+                            >
+
+                            <div class="detail-image-fallback" hidden>
+                                Không tìm thấy ảnh {{ product_filename }}
+                            </div>
+                        {% else %}
+                            <div class="detail-image-fallback">
+                                Sản phẩm chưa có mã ảnh.
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <small>
+                        {{ item.get('category', item.get('type', 'Món đồ')) }}
+                    </small>
+
+                    <b>{{ product_name }}</b>
+
+                    {% if item.get('color') or item.get('style') %}
+                    <span>
+                        {{ item.get('color', '') }}
+                        {% if item.get('color') and item.get('style') %} · {% endif %}
+                        {{ item.get('style', '') }}
+                    </span>
+                    {% endif %}
+
+                    {% if item.get('score') is not none %}
+                    <span>Điểm món: {{ item.get('score')|round(2) }}/10</span>
+                    {% endif %}
+                </article>
+                {% endfor %}
+            </div>
+        </section>
+
+        {% if api_user and outfit.request_item_id %}
+        <section class="feedback-form" aria-label="Chốt trang phục và gửi đánh giá">
+            <label for="outfitNote">Ghi chú (không bắt buộc)</label>
+            <input id="outfitNote" maxlength="500" type="text">
+
+            <div class="outfit-actions">
+                <button
+                    class="btn-submit-ai"
+                    type="button"
+                    data-finalize-outfit="{{ outfit.id }}"
+                    aria-pressed="false">
+                    Chốt trang phục này
+                </button>
+
+                <button
+                    class="btn-outline-pill"
+                    type="button"
+                    data-outfit-feedback="{{ outfit.id }}"
+                    data-feedback-value="1">
+                    Hữu ích
+                </button>
+
+                <button
+                    class="btn-outline-pill"
+                    type="button"
+                    data-outfit-feedback="{{ outfit.id }}"
+                    data-feedback-value="-1">
+                    Không hữu ích
+                </button>
+            </div>
+
+            <p class="feedback-status" id="outfitActionStatus" aria-live="polite" hidden></p>
+        </section>
+        {% else %}
+        <div class="notice">
+            <a href="{{ url_for('login') }}">Đăng nhập</a>
+            để chốt trang phục và gửi đánh giá.
+        </div>
+        {% endif %}
+
+        <div class="footer-actions-row">
+            <a class="btn-outline-large" href="{{ url_for('results') }}">
+                ‹ Quay lại kết quả
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

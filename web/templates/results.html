@@ -1,0 +1,171 @@
+
+{% extends 'base.html' %}
+
+{% block title %}OutfitAI · Gợi ý trang phục{% endblock %}
+
+{% block content %}
+<div class="page-container">
+
+    <div class="stepper-bar">
+        <span class="step-item done">✓ Hoạt động</span>
+        <span class="step-line active"></span>
+        <span class="step-item done">✓ Phong cách</span>
+        <span class="step-line active"></span>
+        <span class="step-item active">Kết quả</span>
+    </div>
+
+    <div class="results-header">
+        <h1 class="main-title">Gợi Ý Outfit Cho Bạn</h1>
+        <p class="sub-title">
+            Top 3 bộ outfit được xếp hạng theo điểm mô hình và các tiêu chí bạn đã chọn.
+        </p>
+
+        <span class="live-weather">
+            {% if session.get('temperature') is not none %}
+                {{ session.get('temperature') }}°C
+            {% else %}
+                Chưa có nhiệt độ
+            {% endif %}
+            · {{ session.get('activity', '') }}
+        </span>
+    </div>
+
+    {% if api_error %}
+    <div class="notice error-notice" role="status">
+        {{ api_error }}
+    </div>
+    {% endif %}
+
+    {% if result.get('warnings') %}
+    <div class="notice" role="status">
+        <b>Lưu ý:</b> {{ result.warnings|join(' · ') }}
+    </div>
+    {% endif %}
+
+    <section class="grid-3-cols" aria-label="Các bộ trang phục được gợi ý">
+
+        {% for outfit in outfits %}
+        <article class="card outfit-result-card">
+
+            <div class="outfit-image-box">
+                <span class="ai-tag">✦ TOP {{ loop.index }}</span>
+
+                <div class="outfit-product-images">
+
+                    {% for item in outfit['items'] %}
+
+                    {% set product_id = item.get(
+                        'id',
+                        item.get('product_id', item.get('ma_sp', ''))
+                    ) %}
+
+                    {% set product_name = item.get(
+                        'name',
+                        item.get('ten_sp', 'Sản phẩm')
+                    ) %}
+
+                    {% if product_id %}
+                    <div class="outfit-product-image">
+
+                        <img
+                            src="{{ url_for(
+                                'static',
+                                filename='images/images/' ~ (product_id|string) ~ '.jpg'
+                            ) }}"
+                            alt="{{ product_name }}"
+                            class="product-image"
+                            loading="lazy"
+                            onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                        >
+
+                        <div class="image-placeholder" style="display:none;">
+                            Không tìm thấy ảnh: {{ product_id }}.jpg
+                        </div>
+
+                        <span class="product-image-name">
+                            {{ product_name }}
+                        </span>
+
+                    </div>
+                    {% else %}
+                    <div class="outfit-product-image">
+                        <div class="image-placeholder">
+                            Sản phẩm chưa có mã ảnh
+                        </div>
+                        <span class="product-image-name">
+                            {{ product_name }}
+                        </span>
+                    </div>
+                    {% endif %}
+
+                    {% endfor %}
+
+                </div>
+
+                <span class="number-circle">#{{ loop.index }}</span>
+            </div>
+
+            <div class="outfit-details">
+
+                <h2>{{ outfit.name }}</h2>
+
+                <p class="card-subtext">
+                    {% for item in outfit['items'] %}
+                        {{ item.get('name', item.get('ten_sp', 'Sản phẩm')) }}
+                        {% if not loop.last %} · {% endif %}
+                    {% endfor %}
+                </p>
+
+                <div class="score-line">
+                    <span class="score-percent">
+                        {{ outfit.score|default(0)|round(1) }}/10
+                    </span>
+
+                    <span class="score-label">
+                        Điểm model ·
+                        {{ outfit.match_score|default(0)|round|int }}% điểm xếp hạng
+                    </span>
+                </div>
+
+                <p class="score-interval">
+                    Khoảng dao động:
+                    {{ outfit.score_low|default(outfit.score|default(0))|round(2) }}–{{ outfit.score_high|default(outfit.score|default(0))|round(2) }}/10
+                </p>
+
+                <span class="confidence-badge">
+                    Tin cậy: {{ outfit.confidence_level|default('Chưa xác định') }}
+                </span>
+
+                <a href="{{ url_for('detail', outfit_id=outfit.id) }}"
+                   class="btn-view-detail">
+                    Xem Chi Tiết Outfit ›
+                </a>
+
+            </div>
+
+        </article>
+        {% endfor %}
+
+        {% if not outfits and not api_error %}
+        <div class="card">
+            API chưa trả bộ trang phục phù hợp.
+        </div>
+        {% endif %}
+
+    </section>
+
+    <div class="card banner-bottom">
+        <div>
+            <b>Muốn thay đổi lựa chọn?</b>
+            <p class="card-subtext">
+                Bạn có thể cập nhật tiêu chí và gửi yêu cầu mới.
+            </p>
+        </div>
+
+        <a href="{{ url_for('style_select') }}" class="btn-outline-pill">
+            Chỉnh sửa tiêu chí
+        </a>
+    </div>
+
+</div>
+{% endblock %}

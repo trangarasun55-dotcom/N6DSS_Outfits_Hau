@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block title %}OutfitAI · Đánh giá mô hình AI{% endblock %}
+{% block content %}
+<div class="page-container model-evaluation-page">
+    <div class="top-breadcrumb">OutfitAI › <span>Đánh giá mô hình AI</span></div>
+    <div class="home-intro">
+        <div class="eyebrow"><span class="eyebrow-dot"></span> HUẤN LUYỆN & ĐÁNH GIÁ</div>
+        <h1 class="main-title">Bốn biểu đồ đánh giá mô hình</h1>
+        <p class="sub-title">Các biểu đồ được tạo từ chương trình huấn luyện trong bộ <strong>Trangphuc_DSS</strong>, dùng để quan sát sai số, dự đoán và mức đóng góp của đặc trưng.</p>
+    </div>
+    <div class="model-chart-grid">
+        {% for chart in charts %}
+        <article class="card model-chart-card">
+            <h2>{{ chart.title }}</h2>
+            <p class="card-subtext">{{ chart.description }}</p>
+            <a href="{{ url_for('static', filename='images/model-charts/' ~ chart.file) }}" target="_blank" rel="noopener">
+                <img src="{{ url_for('static', filename='images/model-charts/' ~ chart.file) }}" alt="{{ chart.title }}" loading="lazy">
+            </a>
+        </article>
+        {% endfor %}
+    </div>
+    <p class="section-helper model-chart-note">Lưu ý: biểu đồ phản ánh lần huấn luyện đã lưu trong các ảnh. Muốn cập nhật theo lần train mới, hãy chạy <code>python train.py</code> trong thư mục Trangphuc_DSS rồi thay các ảnh tương ứng.</p>
+</div>
+<style>
+.model-chart-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem;margin-top:1.5rem}
+.model-chart-card{min-width:0}.model-chart-card h2{font-size:1.15rem;margin:0 0 .35rem}.model-chart-card img{display:block;width:100%;height:auto;margin-top:1rem;border:1px solid var(--color-border);border-radius:var(--radius-sm)}
+.model-chart-note{margin-top:1.25rem}
+@media(max-width:760px){.model-chart-grid{grid-template-columns:minmax(0,1fr)}}
+</style>
+{% endblock %}

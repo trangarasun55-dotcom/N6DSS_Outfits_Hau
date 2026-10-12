@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+
+{% block title %}OutfitAI - Phong cách & Tiêu chí{% endblock %}
+
+{% block content %}
+<div class="page-container">
+    <div class="top-breadcrumb">Gợi ý outfit › <span>Tiêu chí phối đồ</span></div>
+
+    <div class="stepper-bar">
+        <span class="step-item done">✓ Hoạt động</span>
+        <span class="step-line active"></span>
+        <span class="step-item active">2 Phong cách</span>
+        <span class="step-line"></span>
+        <span class="step-item">3 Kết quả</span>
+    </div>
+
+    {% if api_error %}<div class="notice error-notice" role="status">{{ api_error }}</div>{% endif %}
+    <form action="{{ url_for('style_select') }}" method="POST" id="styleForm">
+        <input type="hidden" name="temperature" id="submittedTemperature" value="{{ temperature if temperature is not none else '' }}">
+        <input type="hidden" name="temperature_source" value="{{ temperature_source }}">
+        <input type="hidden" id="previewTemperature" value="{{ temperature if temperature is not none else 25 }}">
+        <input type="hidden" id="previewActivityValue" value="{{ activity }}">
+        <div class="form-layout-grid">
+            <!-- CỘT TRÁI -->
+            <div class="form-left">
+                <h1 class="main-title">Phong cách & Gu thẩm mỹ</h1>
+                <p class="sub-title">Điều chỉnh các tiêu chí bên dưới để thuật toán DSS đánh giá trọng số.</p>
+
+                <!-- 1. Phong cách -->
+                <div class="card form-card">
+                    <h4>Phong cách yêu thích</h4>
+                    <p class="card-subtext">Chọn một hoặc nhiều phong cách bạn muốn hướng tới</p>
+                    <div class="chip-group">
+                        {% for style_name in styles %}<label class="chip-item {% if style_name in selected_styles %}selected{% endif %}"><input type="checkbox" name="styles" value="{{ style_name }}" {% if style_name in selected_styles %}checked{% endif %} hidden> {{ style_name }}</label>{% endfor %}
+                    </div>
+                </div>
+
+                <!-- 2. Màu sắc -->
+                <div class="card form-card">
+                    <h4>Bảng Màu Ưu Tiên</h4>
+                    <p class="card-subtext">Chọn Một Hoặc Nhiều Tông Màu Bạn Ưu Tiên Trong Tủ Đồ</p>
+                    <div class="color-picker-group">
+                        {% set color_tokens = {'Đen':'#0F172A','Trắng':'#FFFFFF','Xám':'#64748B','Be':'#D97706','Nâu đất':'#78350F','Navy':'#1E1B4B'} %}
+                        {% for color in colors %}<label class="color-dot {% if color in selected_colors %}selected{% endif %}" style="background:{{ color_tokens.get(color, '#7C3AED') }};{% if color == 'Trắng' %} border:1px solid #CBD5E1;{% endif %}" title="{{ color }}"><input type="checkbox" name="colors" value="{{ color }}" {% if color in selected_colors %}checked{% endif %} hidden>{% if color in selected_colors %}<span class="color-checkmark" aria-hidden="true">✓</span>{% endif %}</label>{% endfor %}
+                    </div>
+                </div>
+
+                <!-- 3. Mức độ thoải mái -->
+                <div class="card form-card">
+                    <h4>Mức độ thoải mái / Trang trọng</h4>
+                    <p class="card-subtext">Điều chỉnh trọng số ưu tiên sự tiện dụng hay tính lịch sự</p>
+                    <div class="range-container">
+                        <input type="range" name="formality" min="0" max="100" value="{{ formality }}" class="purple-slider" id="comfortRange">
+                        <div class="range-labels">
+                            <div><b>Thoải mái</b><br><small>Dễ vận động</small></div>
+                            <div style="text-align: center;"><b id="rangePercent">{{ formality }}%</b><br><small>CÂN BẰNG</small></div>
+                            <div style="text-align: right;"><b>Trang trọng</b><br><small>Lịch sự, chỉn chu</small></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. Yêu cầu khác -->
+                <div class="card form-card">
+                    <h4>Lưu ý đặc biệt</h4>
+                    <textarea name="notes" maxlength="300" class="custom-textarea" placeholder="Ví dụ: Không mặc áo vướng víu khi cắt mô hình, ưu tiên quần có túi rộng...">{{ notes }}</textarea>
+                </div>
+            </div>
+
+            <!-- CỘT PHẢI (TỔNG HỢP) -->
+            <div class="form-right">
+                <div class="card preview-card live-preview-card" aria-live="polite">
+                    <div class="live-preview-heading">
+                        <div><span class="section-kicker">TIÊU CHÍ GỢI Ý</span><h2>{% if criteria_saved %}Sẵn sàng tạo gợi ý{% else %}Thiết lập tiêu chí outfit{% endif %}</h2></div>
+                        <span id="previewStatus" class="preview-status">{% if criteria_saved %}Đã lưu tiêu chí{% else %}Chưa phân tích{% endif %}</span>
+                    </div>
+                    <div class="summary-row"><span>Hoạt động</span><b id="previewActivity">{{ activity }}</b></div>
+                    <div class="summary-row"><span>Thời tiết</span><span class="purple-pill" id="previewWeather">{% if temperature is not none %}{{ temperature }}°C · {{ weather_city }}{% else %}Chưa có dữ liệu{% endif %}</span></div>
+                    <div class="summary-row"><span>Thoải mái ↔ Trang trọng</span><b id="previewFormality">{{ formality }}% · {% if formality|int < 34 %}Ưu tiên thoải mái{% elif formality|int > 66 %}Ưu tiên trang trọng{% else %}Cân bằng{% endif %}</b></div>
+                    <div class="summary-row"><span>Phong cách</span><b id="previewStyles">{% if selected_styles %}{{ selected_styles|join(', ') }}{% else %}AI tự cân bằng{% endif %}</b></div>
+                    <div class="summary-row"><span>Màu Sắc Ưu Tiên</span><b id="previewColors">{% if selected_colors %}{{ selected_colors|join(', ') }}{% else %}Tất cả màu phù hợp{% endif %}</b></div>
+                    <div class="summary-row"><span>Lưu ý đặc biệt</span><b id="previewNotes">{{ notes or 'Không có lưu ý bổ sung' }}</b></div>
+                    <div class="ai-info-box" id="previewMessage">Chọn phong cách, màu sắc và mức độ ưu tiên. Bảng tiêu chí bên phải cập nhật ngay; khi bấm nút bên dưới, hệ thống gửi lựa chọn để AI phân tích và xếp hạng Top 3 outfit.</div>
+                    <button type="submit" name="action" value="generate" class="btn-submit-ai">Tiếp tục · Bắt đầu phân tích AI</button>
+                    <a href="{{ url_for('index') }}" class="btn-back-link">‹ Quay lại chọn hoạt động</a>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
